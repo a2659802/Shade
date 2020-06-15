@@ -21,7 +21,7 @@ namespace LordOfShade
 
         public static LordOfShade Instance;
 
-        public static readonly List<Sprite> SPRITES = new List<Sprite>();
+        //public static readonly List<Sprite> SPRITES = new List<Sprite>();
 
         public override string GetVersion()
         {
@@ -49,29 +49,6 @@ namespace LordOfShade
             ModHooks.Instance.LanguageGetHook += LangGet;
             ModHooks.Instance.SetPlayerVariableHook += SetVariableHook;
             ModHooks.Instance.GetPlayerVariableHook += GetVariableHook;
-            int ind = 0;
-            Assembly asm = Assembly.GetExecutingAssembly();
-            //MusicLoad.LoadAssets.LoadWavFile();
-            foreach (string res in asm.GetManifestResourceNames())
-            {
-                if (!res.EndsWith(".png"))
-                {
-                    continue;
-                }
-
-                using (Stream s = asm.GetManifestResourceStream(res))
-                {
-                    if (s == null) continue;
-
-                    byte[] buffer = new byte[s.Length];
-                    s.Read(buffer, 0, buffer.Length);
-                    s.Dispose();
-                    var tex = new Texture2D(1, 1);
-                    tex.LoadImage(buffer, true);
-                    SPRITES.Add(Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f)));
-                    Log("Created sprite from embedded image: " + res + " at ind " + ++ind);
-                }
-            }
         }
 
         private string LangGet(string key, string sheettitle)

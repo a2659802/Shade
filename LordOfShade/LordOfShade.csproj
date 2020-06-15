@@ -11,6 +11,7 @@
     <AssemblyName>LordOfShade</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -76,6 +77,10 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Hollow Knight\hollow_knight_Data\Managed\UnityEngine.ParticlesLegacyModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Hollow Knight\hollow_knight_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.Physics2DModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Hollow Knight\hollow_knight_Data\Managed\UnityEngine.Physics2DModule.dll</HintPath>
@@ -90,20 +95,18 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Deceleration.cs" />
+    <Compile Include="FlyMoveTo.cs" />
     <Compile Include="GOSetup.cs" />
     <Compile Include="LordOfShade.cs" />
+    <Compile Include="MoveToPos.cs" />
     <Compile Include="SaveSettings.cs" />
     <Compile Include="ShadeFinder.cs" />
     <Compile Include="Shade.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="assets\1throne.png" />
-    <EmbeddedResource Include="assets\3HK_Prime_barriers_0000_3.png" />
-    <EmbeddedResource Include="assets\3HK_Prime_barriers_0000_3_bg.png" />
-    <EmbeddedResource Include="assets\3HK_Prime_barriers_0001_2.png" />
-    <EmbeddedResource Include="assets\3HK_Prime_barriers_0002_1.png" />
-    <EmbeddedResource Include="assets\4SpriteAtlasTexture-Core (Group 0)-4096x2048-fmt12.png" />
+    <Folder Include="assets" />
   </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="@echo on" />

@@ -37,6 +37,14 @@ namespace LordOfShade
                     go.SetActive(false);
                     Logger.Log("Setup " + go.name);
                 }
+
+                if (i.name.Contains("Shadow Ball"))
+                {
+                    LordOfShade.preloadedGO["ball"] = Instantiate(i);
+                    DontDestroyOnLoad(LordOfShade.preloadedGO["ball"]);
+                    LordOfShade.preloadedGO["ball"].SetActive(false);
+                    Logger.Log("FOUND BALL");
+                }
             }
 
             var fsm = go.LocateMyFSM("Shade Control");
@@ -44,10 +52,6 @@ namespace LordOfShade
             DontDestroyOnLoad(LordOfShade.preloadedGO["slash"]);
             LordOfShade.preloadedGO["slash"].SetActive(false);
             Logger.Log("Setup " + LordOfShade.preloadedGO["slash"].name);
-
-        }
-        private void OnDestroy()
-        {
 
         }
     }
