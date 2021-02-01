@@ -28,8 +28,8 @@ namespace LordOfShade
         {
             if (arg0.name == "GG_Hollow_Knight" && arg1.name == "GG_Workshop")
             {
-                GameCameras.instance.cameraFadeFSM.Fsm.SetState("FadeIn");
-                Destroy(shade.GetComponent<Shade>());
+                //GameCameras.instance.cameraFadeFSM.Fsm.SetState("FadeIn");
+                //Destroy(shade.GetComponent<Shade>());
             }
 
             if (arg1.name == "GG_Workshop") SetStatue();
@@ -82,6 +82,10 @@ namespace LordOfShade
             Destroy(GameObject.Find("Godseeker Crowd"));
             yield return null;
             yield return new WaitForSeconds(0.5f);
+            SpawnShade();
+        }
+        public void SpawnShade()
+        {
             shade = Instantiate(LordOfShade.preloadedGO["shade"]);
             shade.SetActive(true);
             var xH = HeroController.instance.transform.GetPositionX();
@@ -89,7 +93,6 @@ namespace LordOfShade
             shade.transform.SetPosition2D(xH + 8f, yH + 5f);
             shade.AddComponent<Shade>();
         }
-
         private void OnDestroy()
         {
             USceneManager.activeSceneChanged -= SceneChanged;

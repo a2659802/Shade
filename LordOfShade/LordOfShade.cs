@@ -25,7 +25,7 @@ namespace LordOfShade
 
         public override string GetVersion()
         {
-            return "0.0.0.0";
+            return "0.1.0.0";
         }
 
         public override List<(string, string)> GetPreloadNames()
@@ -43,13 +43,17 @@ namespace LordOfShade
             Instance = this;
             Log("Initalizing.");
 
-            Unload();
+            //Unload();
             ModHooks.Instance.AfterSavegameLoadHook += AfterSaveGameLoad;
             ModHooks.Instance.NewGameHook += AddComponent;
             ModHooks.Instance.LanguageGetHook += LangGet;
             ModHooks.Instance.SetPlayerVariableHook += SetVariableHook;
             ModHooks.Instance.GetPlayerVariableHook += GetVariableHook;
+
+           // ModHooks.Instance.HeroUpdateHook += TestShade;
         }
+
+
 
         private string LangGet(string key, string sheettitle)
         {
