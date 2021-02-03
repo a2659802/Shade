@@ -51,6 +51,7 @@ namespace LordOfShade
         private ParticleSystem _retPartic;
         private ParticleSystem _chargePartic;
         private ParticleSystem _quakePartic;
+        private ParticleSystem _wavePartic;
         private BoxCollider2D _bc;
         private Rigidbody2D _rb;
         private MeshRenderer _mr;
@@ -75,10 +76,11 @@ namespace LordOfShade
         }
         private bool _hitFloor;
         private bool _attacking;
+        private float Extra_Time = 0;
         private const float Sword_Time = 0.5f;
         private const float Spell_Time = 1.2f;
-        public int maxHp = 800;
-        private bool _tping;
+        public int maxHp = 10;
+        //private bool _tping;
         private void Awake()
         {
             Log("Added Shade Lord Mono");
@@ -92,19 +94,54 @@ namespace LordOfShade
             _mr = gameObject.GetComponent<MeshRenderer>();
             _slash = gameObject.transform.Find("Slash").gameObject;
 
-            var _dream_ctrl = gameObject.LocateMyFSM("Dreamnail Kill");
-            _dream_ctrl.InsertMethod("Die", 0, () => {
-                HeroController.instance?.AddMPCharge(33);
-            }
-            );
+            FixThings();
+
+            
         }
 
         private IEnumerator Start()
         {
+            //boss level setup
+            if(BossSceneController.Instance!=null)
+            {
+                if(BossSceneController.Instance.BossLevel < 1) // 调谐
+                {
+                    maxHp = 800;
+                    mana = 0;
+                    var _dream_ctrl = gameObject.LocateMyFSM("Dreamnail Kill");
+                    _dream_ctrl.InsertMethod("Die", 0, () => {
+                        HeroController.instance?.AddMPCharge(99);
+                    }
+                    );
+                }
+                else if(BossSceneController.Instance.BossLevel < 2)
+                {
+                    maxHp = 1000;
+                    mana = 33 * 6;
+                    var _dream_ctrl = gameObject.LocateMyFSM("Dreamnail Kill");
+                    _dream_ctrl.InsertMethod("Die", 0, () => {
+                        HeroController.instance?.AddMPCharge(33);
+                    }
+                    );
+                }
+                else
+                {
+                    maxHp = 1200;
+                    mana = 33;
+                    var _dream_ctrl = gameObject.LocateMyFSM("Dreamnail Kill");
+                    _dream_ctrl.InsertMethod("Die", 0, () => {
+                        HeroController.instance?.AddMPCharge(33);
+                    }
+                    );
+                }
+                
+            }
+
+
             On.HealthManager.Hit += OnHit;
             On.HealthManager.Die += HealthManager_Die;
             ModHooks.Instance.TakeHealthHook += OnHitPlayer;
-            transform.position = transform.position - new Vector3(2f, 4f, 0f);
+            //transform.position = transform.position - new Vector3(2f, 4f, 0f);
             foreach (KeyValuePair<string, float> i in _fpsDict) _anim.GetClipByName(i.Key).fps = i.Value;
             _control.GetAction<IntCompare>("Friendly?", 1).integer2.Value = 10;
             Log("Remove Friendly");
@@ -125,7 +162,10 @@ namespace LordOfShade
                 GroundPound,
                 Shriek,
                 Slash,
-                Heal
+                Heal,
+                Copy,
+                SummonGate,
+                
             };
             _maxReps = new Dictionary<Action, int>()
             {
@@ -133,7 +173,9 @@ namespace LordOfShade
                 {GroundPound, 1},
                 {Shriek, 1},
                 {Slash, 3},
-                {Heal, 1}
+                {Heal, 1},
+                {Copy,1 },
+                {SummonGate,2 }
             };
             _reps = new Dictionary<Action, int>()
             {
@@ -141,18 +183,22 @@ namespace LordOfShade
                 {GroundPound, 0},
                 {Shriek, 0},
                 {Slash, 0},
-                {Heal, 0}
+                {Heal, 0},
+                {Copy, 0 },
+                {SummonGate,0 },
             };
             yield return new WaitWhile(() => _control.ActiveStateName != "Idle");
             _control.SetState("Startle");
             yield return new WaitWhile(() => _control.ActiveStateName != "Fly");
             _anim.Play("Fly");
             _control.enabled = false;
-            yield return new WaitForSeconds(0.3f);
-            FixThings();
+            //yield return new WaitForSeconds(0.3f);
+            yield return null;
+            
             _attacking = false;
             StartCoroutine(AttackChooser());
-
+            
+            //Teleport(_target)
             /*while (true)
             {
                 yield return new WaitWhile(() => !Input.GetKey(KeyCode.R));
@@ -185,7 +231,7 @@ namespace LordOfShade
         private IEnumerator EndBattle()
         {
             _control.SetState("Killed");
-            yield return new WaitForSeconds(1f);
+            yield return new WaitForSeconds(2.5f);
             BossSceneController.Instance.EndBossScene();
             yield break;
         }
@@ -216,6 +262,7 @@ namespace LordOfShade
             _chargePartic = transform.Find("Charge Particles").gameObject.GetComponent<ParticleSystem>();
             _quakePartic = transform.Find("Quake Particles").gameObject.GetComponent<ParticleSystem>();
             _reformPartic = transform.Find("Reform Particles").gameObject.GetComponent<ParticleSystem>();
+            _wavePartic = transform.Find("Particle Wave").gameObject.GetComponent<ParticleSystem>();
             _quakeBlst = transform.Find("Quake Blast").gameObject;
             _quakeHit = transform.Find("Quake Hit").gameObject;
             _quakePill = transform.Find("Quake Pillar").gameObject;
@@ -256,9 +303,13 @@ namespace LordOfShade
                 yield break;
             //_attacking = false;
             //yield return new WaitForSeconds(_currAtt == Slash ? Sword_Time : Spell_Time);
-            yield return new IdleSeconds(_currAtt == Slash ? Sword_Time : Spell_Time, this);
+            yield return new IdleSeconds((_currAtt == Slash ? Sword_Time : Spell_Time)+Extra_Time, this);
+            Extra_Time = 0;
+            if (_attacking)
+                yield break;
+            _attacking = true;
             yield return new WaitForSeconds(0.2f);
-            yield return new WaitWhile(() => _tping);
+            //yield return new WaitWhile(() => _tping);
             //yield return new WaitWhile(() => _attacking);
             //_attacking = true;
             _currAtt = Slash;
@@ -271,34 +322,197 @@ namespace LordOfShade
                 {
                     _currAtt = Heal;
                 }
+                else if(_rand.Next(10)>7 && _hm.hp>maxHp/3 &&_reps[Copy] < _maxReps[Copy])
+                {
+                    _currAtt = Copy;
+                }
                 // If player is near
-                else if (FastApproximately(hPos.x, shadePos.x, 5f))
+                else if (FastApproximately(hPos.x, shadePos.x, 5.5f))
                 {
                     if (hPos.y - shadePos.y > 2f) _currAtt = Shriek;
-                    if (hPos.y - shadePos.y < -1f) _currAtt = GroundPound;
+                    if (hPos.y - shadePos.y < -1f && _rand.Next(3) > 0 ) _currAtt = GroundPound;
                 }
                 else
                 {
-                    int tmp = _rand.Next(5);
+                    int tmp = _rand.Next(6);
                     if (tmp < 3) _currAtt = Fireball;
+                    else if (tmp == 4) _currAtt = SummonTendrils;
                     else _currAtt = GroundPound;
                 }
             }
-
+            else if(mana > 11 && _rand.Next(10)>5 && _maxReps[SummonGate]>_reps[SummonGate])
+            {
+                _currAtt = SummonGate;
+            }
+            else if(_rand.Next(10)>6 && !FastApproximately(hPos.x,shadePos.x,3f))
+            {
+                _currAtt = Dash;
+            }
+            
             foreach (var i in _actions)
             {
                 _reps[i] = (i == _currAtt) ? _reps[i] + 1 : 0;
             }
 
             Log("Doing attack: " + _currAtt.Method.Name);
-            _attacking = true;
+            
             _currAtt();
+        }
+        private void Dash()
+        {
+            IEnumerator DoDash()
+            {
+                //yield return null;
+                //_wavePartic.Play();
+                yield return new TeleportV2(new Vector2(transform.position.x, _target.transform.position.y), 30, this);
+                ParticleSystem.EmissionModule em = _shadePartic.emission;
+                em.rate = 100;
+                do
+                {
+                    _wavePartic.Play();
+                    yield return new WaitForSeconds(0.8f);
+                    
+                    Vector2 v = _target.transform.position - transform.position;
+                    v = Vector2.ClampMagnitude(v * 1000, 40);
+                    _rb.velocity = v;
+                    yield return new WaitForSeconds(0.7f);
+                    _rb.velocity = Vector2.zero;
+                } while (_rand.Next(10) > 7);
+                em.rate = 0;
+                _attacking = false;
+                StartCoroutine(AttackChooser());
+            }
+            StartCoroutine(DoDash());
+        }
+        private void SummonTendrils()
+        {
+            IEnumerator DoSummon()
+            {
+                yield return null;
+                bool right = _rand.Next(2) > 0;
+                float floor = 6.4f;
+                float summonY = floor + 10.2f - 9f;
+                float summonX = right ? 55 : 35;
+                summonX += UnityEngine.Random.Range(-3, 3);
+
+                yield return new TeleportV2(new Vector2(summonX + (right ? -1 : 1)*4, summonY), 20, this);
+
+                var em2 = _chargePartic.emission;
+                _anim.Play("Cast Charge");
+                em2.rate = 150;
+                yield return new WaitForSeconds(1f);
+
+                do
+                {
+                    var tendrils = Instantiate(LordOfShade.preloadedGO["tendrils"]);
+                    tendrils.transform.localScale = new Vector3(1.5f, 2.5f, 1);
+                    tendrils.transform.position = new Vector3(summonX, summonY);
+                    tendrils.transform.Find("Extra Box").gameObject.AddComponent<DamageOnce>();
+                    tendrils.AddComponent<DamageOnce>();
+                    tendrils.SetActive(true);
+                    var fsm = tendrils.LocateMyFSM("Control");
+                    fsm.InsertMethod("Still Close?", 0, () => fsm.SetState("Idle"));
+                    fsm.SetState("Emerge");
+                    Destroy(tendrils, 3);
+                    yield return new WaitForSeconds(0.5f);
+                    summonX += (right ? -1 : 1) * 8;
+                } while (summonX >= 25 && summonX <= 65  &&_rand.Next(6) > 0);
+                //Extra_Time = 1.5f;
+                yield return new TeleportV2(new Vector2(40, 10), 10, this);
+                em2.rate = 0;
+                _anim.Play("Fly");
+
+                _attacking = false;
+                StartCoroutine(AttackChooser());
+            }
+            StartCoroutine(DoSummon());
+        }
+        private class DamageOnce : MonoBehaviour
+        {
+
+            private void OnTriggerEnter2D(Collider2D collision)
+            {
+                IEnumerator DisableSelf()
+                {
+                    yield return new WaitForEndOfFrame();
+                    Destroy(gameObject);
+                }
+                if (collision.gameObject.layer == (int)GlobalEnums.PhysLayers.HERO_BOX)
+                {
+                    StartCoroutine(DisableSelf());
+                }
+            }
+
+        }
+        private void SummonGate()
+        {
+            IEnumerator DoSummon()
+            {
+                float summonY = 7f;
+                float moveSpeed = 7f;
+                var em2 = _chargePartic.emission;
+                var gate = LordOfShade.preloadedGO["gate"];
+
+                em2.rate = 50;
+                //yield return new TeleportV2(new Vector2(31, 10), 20, this);
+                _anim.Play("Cast Charge");
+                yield return new WaitForSeconds(0.2f);
+                gate = Instantiate(gate);
+                gate.SetActive(true);
+                gate.transform.position = new Vector3(30f, summonY);
+                gate.AddComponent<Rigidbody2D>().velocity = new Vector2(moveSpeed, 0);
+                gate.GetComponent<Rigidbody2D>().bodyType = RigidbodyType2D.Kinematic;
+                Destroy(gate, 5);
+                //yield return new TeleportV2(new Vector2(UnityEngine.Random.Range(40, 60), 8f),30, this);
+                em2.rate = 0;
+                _attacking = false;
+                Extra_Time = -1f;
+                _anim.Play("Fly");
+                StartCoroutine(AttackChooser());
+            }
+            IEnumerator DoSummonV()
+            {
+                float summonY = 18f;
+                float moveSpeed = 5.5f;
+                var em2 = _chargePartic.emission;
+                var gate = LordOfShade.preloadedGO["gate"];
+
+                em2.rate = 50;
+                //yield return new TeleportV2(new Vector2(31, 10), 20, this);
+                _anim.Play("Cast Charge");
+                yield return new WaitForSeconds(0.2f);
+                gate = Instantiate(gate);
+                gate.transform.localScale += new Vector3(0, 2, 0);
+                gate.transform.eulerAngles = new Vector3(0, 0, 90);
+                gate.SetActive(true);
+                gate.transform.position = new Vector3(60f, summonY);
+                gate.AddComponent<Rigidbody2D>().velocity = new Vector2(0, -1*moveSpeed);
+                gate.GetComponent<Rigidbody2D>().bodyType = RigidbodyType2D.Kinematic;
+                Destroy(gate, 1.5f);
+                //yield return new TeleportV2(new Vector2(UnityEngine.Random.Range(40, 60), 8f),30, this);
+                em2.rate = 0;
+                _attacking = false;
+                Extra_Time = -1f;
+                _anim.Play("Fly");
+                StartCoroutine(AttackChooser());
+            }
+            mana -= 11;
+            if (_rand.Next(2) > 0)
+            {
+                StartCoroutine(DoSummonV());
+            }
+            else
+            {
+                StartCoroutine(DoSummon());
+            }
+            
         }
 
         private void GroundPound()
         {
             IEnumerator DoGroundPound()
             {
+                int _layer = gameObject.layer;
                 ParticleSystem.EmissionModule em = _shadePartic.emission;
                 ParticleSystem.EmissionModule em2 = _chargePartic.emission;
                 //ParticleSystem.EmissionModule em2 = _chargePartic.emission;
@@ -309,21 +523,21 @@ namespace LordOfShade
                 yield return new WaitForSeconds(0.2f);
                 em2.rate = 0;
                 //em2.rate = 0;
-
+                gameObject.layer = (int)PhysLayers.ENEMY_ATTACK;
                 //Log($"Quake1");
                 Vector2 pos = _target.transform.position;
-                pos.y = 14;
+                pos.y = transform.position.y < 14 ? 14 : transform.position.y;
                 //Log($"Quake1-2");
-
+                _bc.enabled = false;
                 if (!FastApproximately(_target.transform.position.x, transform.position.x, 5f))
                 {
-                    _bc.enabled = false;
+                    
                     //Log($"Quake1-3");
                     //Teleport(pos, 50f);
                     yield return new TeleportV2(pos, 40, this);
-                    yield return new WaitWhile(()=>_tping);
+                    //yield return new WaitWhile(()=>_tping);
                     _anim.Play("Quake Antic");
-                    yield return new WaitForSeconds(0.15f);
+                    yield return new WaitForSeconds(0.18f);
                 }
                 else
                 {
@@ -345,8 +559,8 @@ namespace LordOfShade
                 em.rate = 0;
                 
                 em2.rate = 50;
-                gameObject.AddComponent<Deceleration>().deceleration = 0.85f;
-                yield return new WaitForSeconds(0.1f);
+                //gameObject.AddComponent<Deceleration>().deceleration = 0.85f;
+               // yield return new WaitForSeconds(0.1f);
                 //Destroy(dec);
                 em.rate = 20;
                 em2.rate = 0;
@@ -357,12 +571,30 @@ namespace LordOfShade
                 _rb.velocity = new Vector2(0f, -60f);
                 _bc.enabled = true;
                 _hitFloor = false;
-                yield return new WaitWhile(() => !_hitFloor);
+                yield return new WaitWhile(() => !_hitFloor && _rb.velocity.y<-50f);
+                gameObject.layer = _layer;
+                if(!_hitFloor)
+                {
+                    _rb.velocity = new Vector2(0f, 0f);
+                    _mr.enabled = false;
+                    pos = _target.transform.position + new Vector3(side * UnityEngine.Random.Range(6f, 10f), UnityEngine.Random.Range(0f, 6f), 0f);
+                    yield return new WaitForSeconds(0.2f);
+                    yield return new TeleportV2(pos, 30, this);
+                    em.rate = 20;
+                    _mr.enabled = true;
+                    _anim.Play("Retreat End");
+                    yield return new WaitWhile(() => _anim.IsPlaying("Retreat End"));
+                    _bc.enabled = true;
+                    _anim.Play("Fly");
+                    _attacking = false;
+                    StartCoroutine(AttackChooser());
+                    yield break;
+                }
                 _hitFloor = false;
                 _rb.velocity = new Vector2(0f, 0f);
                 GameCameras.instance.cameraShakeFSM.SendEvent("BigShake");
                 _anim.Play("Quake Land");
-                _bc.enabled = false;
+                
                 em.rate = 0;
                 _reformPartic.Play();
                 _quakePartic.Play();
@@ -373,11 +605,12 @@ namespace LordOfShade
                 
                 if (mana>=33) //extra spell
                 {
-                    if (_rand.Next(10) > 7 && Vector2.Distance(_target.transform.position,transform.position)<5)
+                    
+                    if (_rand.Next(10) > 6 && FastApproximately(_target.transform.position.x, transform.position.x, 6))
                     {
                         em2.rate = 50;
                         _anim.Play("Scream Antic");
-                        yield return new WaitForSeconds(0.5f);
+                        yield return new WaitForSeconds(0.8f);
 
                         _anim.Play("Scream");
                         _screamBlst.SetActive(true);
@@ -386,12 +619,13 @@ namespace LordOfShade
                         GameCameras.instance.cameraShakeFSM.SendEvent("AverageShake");
                         yield return new WaitForSeconds(0.5f);
                         _anim.Play("Scream End");
+                        mana -= 11;
                     }
-                    else if(_rand.Next(10)>7 && Vector2.Distance(_target.transform.position, transform.position) >= 5)
+                    else if(_rand.Next(10)>6 && Vector2.Distance(_target.transform.position, transform.position) >= 5)
                     {
                         em2.rate = 50;
                         _anim.Play("Cast Charge");
-                        yield return new WaitForSeconds(0.6f);
+                        yield return new WaitForSeconds(0.8f);
                         float sig = 1;
 
                         for(int i=0;i<2;i++)
@@ -407,8 +641,25 @@ namespace LordOfShade
                             //yield return new WaitForSeconds(0.5f);
                             sig *= -1f;
                         }
+                        if(_rand.Next(2)>0)
+                        {
+                            for (int i = 0; i < 2; i++)
+                            {
+                                yield return new WaitForSeconds(0.5f);
+                                GameObject ball = Instantiate(LordOfShade.preloadedGO["ball"]);
+                                ball.SetActive(true);
+                                Vector3 tmp = ball.transform.localScale;
+                                ball.transform.position = transform.position;
+                                ball.transform.localScale = new Vector3(sig * tmp.x, tmp.y, tmp.z);
+                                Rigidbody2D rb = ball.GetComponent<Rigidbody2D>();
+                                rb.velocity = new Vector2(sig * 30f, 0f);
+                                sig *= -1f;
+                            }
+                            mana -= 11;
+                        }
 
                         em2.rate = 0;
+                        mana -= 11;
                     }
 
                 }
@@ -417,7 +668,7 @@ namespace LordOfShade
                 yield return new WaitForSeconds(0.2f);
                 yield return new TeleportV2(pos, 30, this);
                 //Teleport(pos, 30f);
-                yield return new WaitWhile(() => _tping);
+                //yield return new WaitWhile(() => _tping);
                 //yield return new WaitWhile(() => _attacking);
                 _attacking = true;
                 _reformPartic.Stop();
@@ -461,6 +712,7 @@ namespace LordOfShade
                 yield return new WaitWhile((() => _anim.IsPlaying("Scream End")));
                 _anim.Play("Fly");
                 _attacking = false;
+                Extra_Time = 0.5f;
                 StartCoroutine(AttackChooser());
             }
 
@@ -522,13 +774,78 @@ namespace LordOfShade
                 em2.rate = 0;
                 _anim.Play("Fly");
                 _attacking = false;
+                Extra_Time = -0.5f;
                 StartCoroutine(AttackChooser());
             }
 
             mana-=33;
             StartCoroutine(DoHeal());
         }
+        private void Copy()
+        {
+            IEnumerator DoCopy()
+            {
+                
+                Vector2 pos = new Vector2(UnityEngine.Random.Range(40,50), 16f);
+                yield return new TeleportV2(pos, 20, this);
+                _rb.velocity = Vector2.zero;
 
+                ParticleSystem.EmissionModule em2 = _chargePartic.emission;
+                em2.rate = 50;
+                _anim.Play("Cast Antic");
+                float time = 0.5f;
+                hitShade = false;
+                while (time > 0f && !hitShade)
+                {
+                    _rb.velocity = new Vector2(_rb.velocity.x * 0.8f, _rb.velocity.y * 0.8f);
+                    yield return new WaitForEndOfFrame();
+                    time -= Time.deltaTime;
+                }
+                if (time > 0f)
+                {
+                    em2.rate = 0;
+                    _anim.Play("Fly");
+                    _attacking = false;
+                    StartCoroutine(AttackChooser());
+                    yield break;
+                }
+                _rb.velocity = Vector2.zero;
+                em2.rate = 50;
+                _anim.Play("Cast Charge");
+                time = 0.7f;
+                while (time > 0f && !hitShade)
+                {
+                    yield return new WaitForEndOfFrame();
+                    time -= Time.deltaTime;
+                }
+                if (time <= 0.01f)
+                {
+                    GameCameras.instance.cameraShakeFSM.SendEvent("EnemyKillShake");
+                    var _cpy = Instantiate(LordOfShade.preloadedGO["shade"]);
+                    var bc = _cpy.GetComponent<BoxCollider2D>();
+                    bc.enabled = false;
+                    _cpy.SetActive(true);
+                    _cpy.transform.localScale *= 0.8f;
+                    _cpy.transform.position = transform.position + Vector3.right * 3f;
+                    _cpy.AddComponent<Shade>().Invoke("ChildDestroy", 15);
+                    
+                    Log("Copy Success");
+                    mana = mana > 0 ? -mana : mana;
+                    yield return null;
+                    yield return null;
+                    _cpy.GetComponent<HealthManager>().hp = 9999;
+                    yield return new WaitForSeconds(0.2f);
+                    bc.enabled = true;
+                }
+                //_hitShade = false;
+                em2.rate = 0;
+                _anim.Play("Fly");
+                _attacking = false;
+                StartCoroutine(AttackChooser());
+            }
+            
+            StartCoroutine(DoCopy());
+        }
         private void Fireball()
         {
             IEnumerator DoFire()
@@ -572,6 +889,7 @@ namespace LordOfShade
                 yield return new WaitForSeconds(0.10f);
                 GameObject ball = Instantiate(LordOfShade.preloadedGO["ball"]);
                 ball.SetActive(true);
+                ball.GetComponent<DamageHero>().damageDealt = 2;
                 tmp = ball.transform.localScale;
                 ball.transform.position = transform.position;
                 ball.transform.localScale = new Vector3(side * 2f, tmp.y * 2f, tmp.z);
@@ -648,8 +966,8 @@ namespace LordOfShade
         {
             IEnumerator tp()
             {
-                Log($"TP to {pos} begin");
-                _tping = true;
+                //Log($"TP to {pos} begin");
+                //_tping = true;
                 _bc.enabled = false;
                 _anim.Play("Retreat Start");
                 Deceleration dec = gameObject.AddComponent<Deceleration>();
@@ -672,8 +990,10 @@ namespace LordOfShade
                 _anim.Play("Fly");
                 _bc.enabled = true;
                 _attacking = false;
-                _tping = false;
-                Log($"TP to {pos} finished");
+                //_tping = false;
+                //Log($"TP to {pos} finished");
+                Extra_Time = Spell_Time * -1f;
+                StartCoroutine(AttackChooser());
             }
 
             StartCoroutine(tp());
@@ -728,9 +1048,9 @@ namespace LordOfShade
         {
             if (self == _hm)
             {
-                if (!_attacking)
+                if (!_attacking && _rand.Next(2)>0)
                 {
-                   // _attacking = true;
+                    _attacking = true;
                     //float offset = FaceHero();
                     Vector2 tmp = _target.transform.position;
                     Vector2 pos = new Vector2(tmp.x + side * 8.5f, tmp.y);
@@ -748,6 +1068,10 @@ namespace LordOfShade
                 Log(_life);
                 _life--;*/
                 mana += 11;
+                if(BossSceneController.Instance?.BossLevel == 2)
+                {
+                    mana += 33;
+                }
             }
             orig(self, hitinstance);
         }
@@ -795,7 +1119,15 @@ namespace LordOfShade
         }
         private void OnDestroy()
         {
+
             Log("Shade Destroy");
+        }
+        private void ChildDestroy()
+        {
+            if (_hm.hp > 3000)
+            {
+                _control.SetState("Killed");
+            }
         }
         private static void Log(object obj)
         {

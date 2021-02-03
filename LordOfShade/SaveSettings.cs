@@ -8,25 +8,11 @@ namespace LordOfShade
     //https://github.com/5FiftySix6/HollowKnight.Pale-Prince/blob/master/Pale%20Prince/SaveSettings.cs
 
     [Serializable]
-    public class SaveSettings : ModSettings, ISerializationCallbackReceiver
+    public class SaveSettings : ModSettings
     {
-        public BossStatue.Completion Completion = new BossStatue.Completion
+        public BossStatue.Completion ShadeLordCompletion = new BossStatue.Completion
         {
             isUnlocked = true
         };
-
-        public void OnBeforeSerialize()
-        {
-            StringValues["Completion"] = JsonUtility.ToJson(Completion);
-        }
-
-        public void OnAfterDeserialize()
-        {
-            StringValues.TryGetValue("Completion", out string @out);
-
-            if (string.IsNullOrEmpty(@out)) return;
-
-            Completion = JsonUtility.FromJson<BossStatue.Completion>(@out);
-        }
     }
 }
